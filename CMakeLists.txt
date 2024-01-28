@@ -24,6 +24,12 @@ project(DeepComp VERSION 1.0.0 LANGUAGES C CXX CUDA)
 
 find_package(MPI REQUIRED)
 
+if (NOT (DEFINED CMAKE_CUDA_ARCHITECTURES))
+  if (NOT CMAKE_VERSION VERSION_LESS "3.17")
+    set(CMAKE_CUDA_ARCHITECTURES OFF)
+  endif()
+endif()
+
 add_subdirectory(../owl build_owl EXCLUDE_FROM_ALL)
 add_library(deepCompositing STATIC
   deepCompositing.cu
