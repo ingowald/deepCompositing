@@ -1,4 +1,4 @@
-`deepComp`: A CUDA+MPI Library for fast Compositing of "deep" Z-and-alpha Frame Buffers
+# `deepComp`: A CUDA+MPI Library for fast Compositing of "deep" Z-and-alpha Frame Buffers
 
 This library allows a data-parallel application to render, on each
 individual rank, a "deep" frame buffer with multiple RGBA-z fragments
