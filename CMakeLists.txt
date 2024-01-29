@@ -30,55 +30,36 @@ if (NOT (DEFINED CMAKE_CUDA_ARCHITECTURES))
   endif()
 endif()
 
-add_subdirectory(../owl build_owl EXCLUDE_FROM_ALL)
+#add_subdirectory(../owl build_owl EXCLUDE_FROM_ALL)
 add_library(deepCompositing STATIC
+  deepCompositing.h
   deepCompositing.cu
   )
 target_link_libraries(deepCompositing
   PUBLIC
-  owl::owl
   MPI::MPI_CXX
   )
-
-
-add_executable(testDeepOffline
-  testDeepOffline.cpp
-  testRenderer.cu
+target_include_directories(deepCompositing
+  PUBLIC
+  ${PROJECT_SOURCE_DIR}
+  ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
   )
-target_link_libraries(testDeepOffline
-  deepCompositing
-  stb_image
-  )
+set_target_properties(deepCompositing
+  PROPERTIES
+  CUDA_SEPARABLE_COMPILATION ON
+  POSITION_INDEPENDENT_CODE ON
+  CUDA_RESOLVE_DEVICE_SYMBOLS ON
+  CUDA_USE_STATIC_CUDA_RUNTIME ON
+  CUDA_ARCHITECTURES ${CMAKE_CUDA_ARCHITECTURES}
+)
 
 
-add_executable(dcBench
-  bench.cu
-  )
-target_link_libraries(dcBench
-  deepCompositing
-  owl::owl
-  stb_image
-  )
 
 
-add_executable(testDeepViewer
-  testDeepViewer.cpp
-  testRenderer.cu
-  )
-target_link_libraries(testDeepViewer
-  deepCompositing
-  owl::owl
-  owl_viewer
-  stdc++fs # for experimental::filesystem
-  )
+if ((${CMAKE_CURRENT_SOURCE_DIR} STREQUAL ${CMAKE_SOURCE_DIR}))
+  SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+  SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+  SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-
-add_executable(compositeBricks
-  compositeBricks.cpp
-  )
-target_link_libraries(compositeBricks
-  owl::owl
-  stdc++fs
-  stb_image
-  )
-
+  add_subdirectory(samples)
+endif()

@@ -16,10 +16,13 @@
 
 #pragma once
 
-#include "owl/common/math/vec.h"
+// #include "owl/common/math/vec.h"
 #include <cuda_runtime.h>
 #include <cuda_fp16.h>
 #include <mpi.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <iostream>
 
 /* in this strategy we find the 'weakest' fragment (as in lowest
    opeacity), and merge this with the following fragment */
@@ -28,35 +31,52 @@
 #define DEFAULT_MAX_FRAGS_PER_PIXEL 3
 
 namespace dc {
-  using namespace owl::common;
 
   class TwoPassInterface;
   class FixedFragsPerPixel;
 
-#ifndef __CUDACC__
-  /* make these two types "visible" on the host, in the sense that the
-     host knows they exist, and what size they are (so host can
-     allocate memory, copy stuff, etc, even if it doesn't know what's
-     really bedhind them on the cuda side */
-  typedef vec4f    float4;
-  // typedef struct { uint16_t placeholder; } half;
-  // typedef vec4us   half4;
-#endif
-
 #define SMALL_FRAGMENTS 1
   
+  inline int divRoundUp(int a, int b) { return (a+b-1)/b; }
+  inline __device__ float4 operator*(float f, float4 v)
+  { return make_float4(f*v.x,f*v.y,f*v.z,f*v.w); }
+  inline __device__ float3 operator*(float f, float3 v)
+  { return make_float3(f*v.x,f*v.y,f*v.z); }
+  
+  inline __device__ float4 operator+(float4 a, float4 b)
+  { return make_float4(a.x+b.x,
+                       a.y+b.y,
+                       a.z+b.z,
+                       a.w+b.w); }
+  
+  inline __device__ float3 operator*(float3 a, float3 b)
+  { return make_float3(a.x*b.x,
+                       a.y*b.y,
+                       a.z*b.z); }
+  inline __device__ float3 operator+(float3 a, float3 b)
+  { return make_float3(a.x+b.x,
+                       a.y+b.y,
+                       a.z+b.z); }
+
+#ifndef __CUDA_ARCH__
+  using std::min;
+  using std::max;
+#endif
+  
 #if SMALL_FRAGMENTS
+
+
   struct Fragment {
     inline// __device__
     Fragment() = default;
-    inline __device__ Fragment(float z, const vec3f &color, const float alpha=1.f)
+    inline __device__ Fragment(float z, const float3 &color, const float alpha=1.f)
       : r(encode8(color.x)),
         g(encode8(color.y)),
         b(encode8(color.z)),
         a(encode8(alpha)),
         z(min(z,1e19f))
     {}
-    inline __device__ Fragment(float z, const vec4f &color)
+    inline __device__ Fragment(float z, const float4 &color)
       : r(encode8(color.x)),
         g(encode8(color.y)),
         b(encode8(color.z)),
@@ -64,12 +84,12 @@ namespace dc {
         z(min(z,1e19f))
     {}
 
-    inline __device__ __host__ vec4f getRGBA() const {
-      return vec4f(r*(1.f/255.f),
-                   g*(1.f/255.f),
-                   b*(1.f/255.f),
-                   a*(1.f/255.f)
-                   );
+    inline __device__ __host__ float4 getRGBA() const {
+      return make_float4(r*(1.f/255.f),
+                         g*(1.f/255.f),
+                         b*(1.f/255.f),
+                         a*(1.f/255.f)
+                         );
     }
     inline __device__ __host__ float getAlpha() const {
       return a*(1.f/255.f);
@@ -87,13 +107,13 @@ namespace dc {
   struct Fragment {
     inline// __device__
     Fragment() = default;
-    inline __device__ Fragment(float z, const vec3f &color, const float alpha=1.f)
+    inline __device__ Fragment(float z, const float3 &color, const float alpha=1.f)
       : r(color.x),g(color.y),b(color.z),a(alpha),z(min(z,1e19f))
     {}
-    inline __device__ Fragment(float z, const vec4f &color)
+    inline __device__ Fragment(float z, const float4 &color)
       : r(color.x),g(color.y),b(color.z),a(color.w),z(min(z,1e19f))
     {}
-    inline __device__ __host__ vec4f getRGBA() const { return vec4f(r,g,b,a); }
+    inline __device__ __host__ float4 getRGBA() const { return float4(r,g,b,a); }
     inline __device__ __host__ float getAlpha() const { return a; }
 
     float r,g,b,a;
@@ -116,14 +136,14 @@ namespace dc {
                    bool dbg=false) const;
 
     inline __device__
-    vec2i getSize() const { return fbSize; }
+    int2 getSize() const { return fbSize; }
     
     /*! array of all fragments, using N fragments per each pixel */
     Fragment *fragments;
     /*! exactly one counter per pixel */
     uint32_t *counters;
 
-    vec2i fbSize;
+    int2 fbSize;
     int maxFragsPerPixel;
   };
 
@@ -133,7 +153,7 @@ namespace dc {
     /*! for debugging - load output from prev 'save' back in */
     static SavedFrags load(const std::string &fileName);
 
-    vec2i fbSize { 0,0 };
+    int2 fbSize { 0,0 };
     /* one int per pixel, pointing to _end_ of fragemnt list for this
        pixel - this is cuda managed mem */
     uint32_t *counters { 0 };
@@ -252,9 +272,6 @@ namespace dc {
     static std::string dumpFileName;
   };
 
-
-
-
   /*! write given fragment into given pixel's fragment list - in this
       implementation we always insert in a sorted way; ie, the list is
       always kept sorted during insertion of any new fragments, with
@@ -283,8 +300,8 @@ namespace dc {
           lowest_pos = i;
         }
       if (lowest_pos == 0) lowest_pos = 1;
-      vec4f c0 = frags[lowest_pos-1].getRGBA();
-      vec4f c1 = frags[lowest_pos].getRGBA();
+      float4 c0 = frags[lowest_pos-1].getRGBA();
+      float4 c1 = frags[lowest_pos].getRGBA();
       c0 = c0 + (1.f-c0.w)*c1;
       frags[lowest_pos-1] = Fragment(frags[lowest_pos-1].z,c0);
       for (int i=lowest_pos+1;i<listLength;i++)

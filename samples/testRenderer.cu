@@ -131,10 +131,6 @@ namespace dctest {
           float t;
           if (intersects(box,org,dir,t)) {
             vec3f color = owl::randomColor(12+mpiRank);
-            bool dbg = pixelX == 0 && pixelY == 0;//pixelX == 320/2 && pixelY==200/2;
-            if (dbg)
-              printf("rendered %f %f %f:%f\n",
-                     color.x,color.y,color.z,.8f);
             deepFB.write({pixelX,pixelY},dc::Fragment(t,color,.8f));
           }
         }

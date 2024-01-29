@@ -1,5 +1,5 @@
 // ======================================================================== //
-// Copyright 2018-2020 Ingo Wald                                            //
+// Copyright 2018 Ingo Wald                                                 //
 //                                                                          //
 // Licensed under the Apache License, Version 2.0 (the "License");          //
 // you may not use this file except in compliance with the License.         //
@@ -16,30 +16,21 @@
 
 #pragma once
 
-#include "owl/common/math/vec.h"
-#include "deepCompositing.h"
+#include "gdt/gdt.h"
+#include "gdt/math/constants.h"
+#include <iostream>
 
-/*! a little test renderer that uses the deepCompositing library to
-    render some NxNxN semi-transparent cubes in MPI, with differnt
-    ranks owning differnet cubes */
-namespace dctest {
-  using namespace owl::common;
-  
-  struct Camera {
-    vec3f org, dir_00, dir_du, dir_dv;
+namespace gdt {
+
+  /*! a n-bit fixed-point float in the [0..1] region */
+  template<typename storageT, int Nbits, int is_signed>
+  struct FixedPoint {
+    FixedPoint();
+
+    float operator float() const {
+      return bits / float((1ULL << Nbits)-1);
+    }
+    storageT bits;
   };
-
-  // ==================================================================
-  // first variant - use fixd num frags...
-  // ==================================================================
-
-  /*! the main (second) render pass: produce the actual fragments, and
-      write then into the pre-allocated memory */
-  void renderFragments(int testCubeRes,
-                       const dc::DeviceInterface &deepFB,
-                       const Camera &camera,
-                       int mpiRank, int mpiSize);
-
 }
-
-  
+ 

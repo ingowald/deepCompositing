@@ -14,7 +14,6 @@
 // limitations under the License.                                           //
 // ======================================================================== //
 
-#include <cuda_runtime.h>
 #include <mpi.h>
 #include "testRenderer.h"
 #include <vector>

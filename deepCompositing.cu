@@ -167,7 +167,7 @@ namespace dc {
     return min(255,max(0,int(f*256.f)));
   }
 
-  inline __device__ uint32_t make_rgba(const vec3f color)
+  inline __device__ uint32_t make_rgba(const float3 color)
   {
     return
       (make_8bit(color.x) << 0) +
@@ -175,7 +175,7 @@ namespace dc {
       (make_8bit(color.z) << 16) +
       (0xffU << 24);
   }
-  inline __device__ uint32_t make_rgba(const vec4f color)
+  inline __device__ uint32_t make_rgba(const float4 color)
   {
     return
       (make_8bit(color.x) << 0) +
@@ -276,12 +276,6 @@ namespace dc {
     if (numGPUsOnThisNode == 0)
       throw std::runtime_error("no GPU on this rank!");
       
-    if (localDeviceID >= numGPUsOnThisNode) {
-      printf("%s*********** WARNING: oversubscribing GPU on node %s ***********%s\n",
-             OWL_TERMINAL_RED,
-             hostName.c_str(),
-             OWL_TERMINAL_DEFAULT);
-    }
     int gpuID = localDeviceID % numGPUsOnThisNode;
     MPI_CALL(Barrier(comm));
       
@@ -320,7 +314,7 @@ namespace dc {
              compactedFragmentLists);
     out.write((char *)h_compactedFragmentLists.data(),
               numCompactedFragments*sizeof(compactedFragmentLists[0]));
-    std::cout << "SUCCESSFULLY DUMPED FRAME BUFFER, fbsize=" << vec2i(fbSize)
+    std::cout << "SUCCESSFULLY DUMPED FRAME BUFFER, fbsize=" << fbSize.x << "x" << fbSize.y
               << " numFrags=" << numCompactedFragments << std::endl;
   }
   
@@ -408,7 +402,7 @@ namespace dc {
     for (int i=0;i<count;i++) {
       compacted[begin+i] = in[i];
 
-      vec4f _in = in[i].getRGBA();
+      float4 _in = in[i].getRGBA();
       if (dbg) printf("frag %i: rgb= %f %f %f a=%f z=%f\n",i,
                       _in.x,
                       _in.y,
@@ -442,7 +436,7 @@ namespace dc {
     bool dbg = 0;//pixelIdx == 0;
     
     float alpha = 0.f;
-    vec3f color = 0.f;
+    float3 color = make_float3(0.f,0.f,0.f);
     while (1) {
       Fragment *nextClosestFragment = nullptr;
       // find next closest fragment:
@@ -460,7 +454,7 @@ namespace dc {
       if (nextClosestFragment == nullptr || float(nextClosestFragment->z) >= 1e20f)
         break;
 
-      vec4f fragColor = nextClosestFragment->getRGBA();
+      float4 fragColor = nextClosestFragment->getRGBA();
       if (dbg) printf("fragColor %f %f %f %f\n",
                       fragColor.x,
                       fragColor.y,
@@ -469,8 +463,8 @@ namespace dc {
       color = color
         +  (1.f-alpha)
         // *  fragColor.w
-        *  (const vec3f&)fragColor;
-      // vec3f((float)nextClosestFragment->r,
+        *  (const float3&)fragColor;
+      // float3((float)nextClosestFragment->r,
       //          (float)nextClosestFragment->g,
       //          (float)nextClosestFragment->b);
       alpha += (1.f-alpha)*fragColor.w;
@@ -484,7 +478,7 @@ namespace dc {
                                   const Fragment &frag)
   {
     o << "{z=" << float(frag.z)
-      << ",rgb="<<vec3f((float)frag.r,(float)frag.g,(float)frag.b)
+      << ",rgb=("<<(float)frag.r << "," << (float)frag.g << "," << (float)frag.b << ")"
       <<",a="<<frag.getRGBA().w<<"}";
     return o;
   }
@@ -584,6 +578,7 @@ namespace dc {
 
   void Compositor::finish(uint32_t *whereToWriteFinalPixels)
   {
+    CUDA_SYNC_CHECK();
     if (affinitizedGPU < 0)
       std::cout << "WARNING: NOT AFFINITIZED!" << std::endl;
       
