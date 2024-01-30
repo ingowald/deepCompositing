@@ -26,7 +26,7 @@
 
 /* in this strategy we find the 'weakest' fragment (as in lowest
    opeacity), and merge this with the following fragment */
-#define OVERFLOW_STRATEGY_MERGE_WEAKEST_FRAGMENT 1
+// #define OVERFLOW_STRATEGY_MERGE_WEAKEST_FRAGMENT 1
 
 #define DEFAULT_MAX_FRAGS_PER_PIXEL 3
 
@@ -113,7 +113,7 @@ namespace dc {
     inline __device__ Fragment(float z, const float4 &color)
       : r(color.x),g(color.y),b(color.z),a(color.w),z(min(z,1e19f))
     {}
-    inline __device__ __host__ float4 getRGBA() const { return float4(r,g,b,a); }
+    inline __device__ __host__ float4 getRGBA() const { return make_float4(r,g,b,a); }
     inline __device__ __host__ float getAlpha() const { return a; }
 
     float r,g,b,a;

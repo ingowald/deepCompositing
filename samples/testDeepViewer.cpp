@@ -96,6 +96,7 @@ namespace dctest {
       //                             "/local/sub-yetanother");
       dctest::renderFragments(testCubeRes,interface,
                               dctest::camera, rank,size);
+      cudaDeviceSynchronize();
 
       // ------------------------------------------------------------------
       // composite frame
@@ -190,7 +191,17 @@ namespace dctest {
       // vec3f lookUp   = { 0,1,0 };
       // float zoom = 2.f;
 
+      vec3f from { 0.05217219144, 0.191569522, 0.5715021491 };
+      vec3f at   {  0.5941146612, 1.011739969, 0.5692445636 };
+      vec3f up   { 0, 1, 0 };
+
       Viewer viewer(compositor);
+
+      viewer.setCameraOrientation(/*origin   */from,
+                                  /*lookat   */at,
+                                  /*up-vector*/up,
+                                  /*fovy(deg)*/60.f);
+      
       viewer.showAndRun();
     }
     else {
@@ -213,6 +224,7 @@ namespace dctest {
           dc::DeviceInterface interface = compositor.prepare();
           dctest::renderFragments(testCubeRes, interface, camera, rank,size);
 
+          cudaDeviceSynchronize();
           uint32_t *fbPointer = 0;
           compositor.finish(fbPointer);
         } break;
