@@ -18,6 +18,10 @@
 
 // helium
 #include "helium/BaseDevice.h"
+// std
+#include <vector>
+
+#include "FrameWrapper.h"
 
 namespace ptc {
 
@@ -213,6 +217,9 @@ struct PTCDevice : public anari::DeviceImpl, helium::ParameterizedObject
   int deviceGetProperty(
       const char *name, ANARIDataType type, void *mem, uint64_t size);
 
+  bool isFrameHandle(ANARIObject o);
+  void removeFrameWrapper(FrameWrapper *fw);
+
   template <typename... Args>
   void reportMessage(
       ANARIStatusSeverity, const char *fmt, Args &&...args) const;
@@ -220,6 +227,10 @@ struct PTCDevice : public anari::DeviceImpl, helium::ParameterizedObject
   bool m_initialized{false};
   uint32_t m_refCount{1};
   anari::DeviceImpl *m_ptd{nullptr};
+  std::vector<FrameWrapper *> m_frameWrappers;
+
+  static int s_numPTCDevices;
+  static bool s_mpiInitializedPrivately;
 };
 
 // Inlined definitions ////////////////////////////////////////////////////////

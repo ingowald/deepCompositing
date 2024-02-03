@@ -20,7 +20,7 @@ find_package(anari 0.8.0 REQUIRED)
 
 project(anari_library_ptc LANGUAGES C CXX CUDA)
 
-project_add_library(MODULE PTCDevice.cpp PTCLibrary.cpp)
+project_add_library(MODULE PTCDevice.cpp PTCLibrary.cpp FrameWrapper.cu)
 project_link_libraries(anari::helium deepCompositing)
 
 include(GenerateExportHeader)

@@ -19,9 +19,26 @@
 #include <helium/BaseGlobalDeviceState.h>
 #include <helium/BaseObject.h>
 // std
+#include <algorithm>
 #include <memory>
 
 namespace ptc {
+
+int PTCDevice::s_numPTCDevices = 0;
+bool PTCDevice::s_mpiInitializedPrivately = false;
+
+// Helper functions ///////////////////////////////////////////////////////////
+
+template <typename T, typename U>
+static bool sameAddress(const T *p1, const U *p2)
+{
+  return (const void *)p1 == (const void *)p2;
+}
+
+static FrameWrapper *asFrameWrapper(ANARIObject o)
+{
+  return reinterpret_cast<FrameWrapper *>(o);
+}
 
 // API Objects ////////////////////////////////////////////////////////////////
 
@@ -69,7 +86,11 @@ ANARICamera PTCDevice::newCamera(const char *subtype)
 ANARIFrame PTCDevice::newFrame()
 {
   initDevice();
-  return m_ptd->newFrame();
+  auto *fw = new FrameWrapper((ANARIDevice)m_ptd,
+      m_ptd->newFrame(),
+      [=](const void *f) { this->removeFrameWrapper((FrameWrapper *)f); });
+  m_frameWrappers.push_back(fw);
+  return (ANARIFrame)fw;
 }
 
 ANARIGeometry PTCDevice::newGeometry(const char *subtype)
@@ -145,6 +166,8 @@ void PTCDevice::setParameter(
 {
   if (handleIsDevice(object))
     this->setParam(name, type, mem);
+  else if (isFrameHandle(object))
+    asFrameWrapper(object)->setParameter(name, type, mem);
   else
     m_ptd->setParameter(object, name, type, mem);
 }
@@ -153,6 +176,8 @@ void PTCDevice::unsetParameter(ANARIObject object, const char *name)
 {
   if (handleIsDevice(object))
     this->removeParam(name);
+  else if (isFrameHandle(object))
+    asFrameWrapper(object)->unsetParameter(name);
   else
     m_ptd->unsetParameter(object, name);
 }
@@ -161,6 +186,8 @@ void PTCDevice::unsetAllParameters(ANARIObject object)
 {
   if (handleIsDevice(object))
     this->removeAllParams();
+  else if (isFrameHandle(object))
+    asFrameWrapper(object)->unsetAllParameters();
   else
     m_ptd->unsetAllParameters(object);
 }
@@ -171,8 +198,13 @@ void *PTCDevice::mapParameterArray1D(ANARIObject object,
     uint64_t numElements1,
     uint64_t *elementStride)
 {
-  return m_ptd->mapParameterArray1D(
-      object, name, dataType, numElements1, elementStride);
+  if (isFrameHandle(object)) {
+    return asFrameWrapper(object)->mapParameterArray1D(
+        name, dataType, numElements1, elementStride);
+  } else {
+    return m_ptd->mapParameterArray1D(
+        object, name, dataType, numElements1, elementStride);
+  }
 }
 
 void *PTCDevice::mapParameterArray2D(ANARIObject object,
@@ -182,8 +214,13 @@ void *PTCDevice::mapParameterArray2D(ANARIObject object,
     uint64_t numElements2,
     uint64_t *elementStride)
 {
-  return m_ptd->mapParameterArray2D(
-      object, name, dataType, numElements1, numElements2, elementStride);
+  if (isFrameHandle(object)) {
+    return asFrameWrapper(object)->mapParameterArray2D(
+        name, dataType, numElements1, numElements2, elementStride);
+  } else {
+    return m_ptd->mapParameterArray2D(
+        object, name, dataType, numElements1, numElements2, elementStride);
+  }
 }
 
 void *PTCDevice::mapParameterArray3D(ANARIObject object,
@@ -194,24 +231,38 @@ void *PTCDevice::mapParameterArray3D(ANARIObject object,
     uint64_t numElements3,
     uint64_t *elementStride)
 {
-  return m_ptd->mapParameterArray3D(object,
-      name,
-      dataType,
-      numElements1,
-      numElements2,
-      numElements3,
-      elementStride);
+  if (isFrameHandle(object)) {
+    return asFrameWrapper(object)->mapParameterArray3D(name,
+        dataType,
+        numElements1,
+        numElements2,
+        numElements3,
+        elementStride);
+  } else {
+    return m_ptd->mapParameterArray3D(object,
+        name,
+        dataType,
+        numElements1,
+        numElements2,
+        numElements3,
+        elementStride);
+  }
 }
 
 void PTCDevice::unmapParameterArray(ANARIObject object, const char *name)
 {
-  m_ptd->unmapParameterArray(object, name);
+  if (isFrameHandle(object))
+    asFrameWrapper(object)->unmapParameterArray(name);
+  else
+    m_ptd->unmapParameterArray(object, name);
 }
 
 void PTCDevice::commitParameters(ANARIObject object)
 {
   if (handleIsDevice(object))
     deviceCommitParameters();
+  else if (isFrameHandle(object))
+    asFrameWrapper(object)->commitParameters();
   else
     m_ptd->commitParameters(object);
 }
@@ -225,15 +276,18 @@ void PTCDevice::release(ANARIObject o)
     if (--m_refCount == 0)
       delete this;
     return;
-  }
-
-  m_ptd->release(o);
+  } else if (isFrameHandle(o))
+    asFrameWrapper(o)->release();
+  else
+    m_ptd->release(o);
 }
 
 void PTCDevice::retain(ANARIObject o)
 {
   if (handleIsDevice(o))
     m_refCount++;
+  else if (isFrameHandle(o))
+    asFrameWrapper(o)->retain();
   else
     m_ptd->retain(o);
 }
@@ -255,7 +309,10 @@ int PTCDevice::getProperty(ANARIObject object,
     uint64_t size,
     ANARIWaitMask mask)
 {
-  return m_ptd->getProperty(object, name, type, mem, size, mask);
+  if (isFrameHandle(object))
+    return asFrameWrapper(object)->getProperty(name, type, mem, size, mask);
+  else
+    return m_ptd->getProperty(object, name, type, mem, size, mask);
 }
 
 // Query functions ////////////////////////////////////////////////////////////
@@ -299,29 +356,29 @@ const void *PTCDevice::frameBufferMap(ANARIFrame f,
     uint32_t *height,
     ANARIDataType *pixelType)
 {
-  return m_ptd->frameBufferMap(f, channel, width, height, pixelType);
+  return asFrameWrapper(f)->frameBufferMap(channel, width, height, pixelType);
 }
 
 void PTCDevice::frameBufferUnmap(ANARIFrame f, const char *channel)
 {
-  m_ptd->frameBufferUnmap(f, channel);
+  asFrameWrapper(f)->frameBufferUnmap(channel);
 }
 
 // Frame Rendering ////////////////////////////////////////////////////////////
 
 void PTCDevice::renderFrame(ANARIFrame f)
 {
-  m_ptd->renderFrame(f);
+  asFrameWrapper(f)->renderFrame();
 }
 
 int PTCDevice::frameReady(ANARIFrame f, ANARIWaitMask m)
 {
-  return m_ptd->frameReady(f, m);
+  return asFrameWrapper(f)->frameReady(m);
 }
 
 void PTCDevice::discardFrame(ANARIFrame f)
 {
-  m_ptd->discardFrame(f);
+  asFrameWrapper(f)->discardFrame();
 }
 
 // Other PTCDevice definitions ////////////////////////////////////////////////
@@ -330,6 +387,7 @@ PTCDevice::PTCDevice(ANARIStatusCallback defaultCallback, const void *userPtr)
 {
   anari::DeviceImpl::m_defaultStatusCB = defaultCallback;
   anari::DeviceImpl::m_defaultStatusCBUserPtr = userPtr;
+  s_numPTCDevices++;
 }
 
 PTCDevice::PTCDevice(ANARILibrary l) : DeviceImpl(l) {}
@@ -337,8 +395,15 @@ PTCDevice::PTCDevice(ANARILibrary l) : DeviceImpl(l) {}
 PTCDevice::~PTCDevice()
 {
   reportMessage(ANARI_SEVERITY_DEBUG, "destroying PTC device (%p)", this);
+
   if (m_ptd)
     m_ptd->release(m_ptd->this_device());
+
+  s_numPTCDevices--;
+  if (s_numPTCDevices == 0 && s_mpiInitializedPrivately) {
+    reportMessage(ANARI_SEVERITY_DEBUG, "finalizing MPI");
+    MPI_Finalize();
+  }
 }
 
 void PTCDevice::initDevice()
@@ -365,6 +430,14 @@ void PTCDevice::initDevice()
   if (!m_ptd)
     reportMessage(ANARI_SEVERITY_FATAL_ERROR, "failed to create device");
 
+  int mpiInitialized = 0;
+  MPI_Initialized(&mpiInitialized);
+  if (s_numPTCDevices == 0 && !mpiInitialized) {
+    reportMessage(ANARI_SEVERITY_DEBUG, "initializing MPI");
+    MPI_Init(nullptr, nullptr);
+    s_mpiInitializedPrivately = true;
+  }
+
   m_initialized = true;
 }
 
@@ -377,6 +450,23 @@ int PTCDevice::deviceGetProperty(
     const char *name, ANARIDataType type, void *mem, uint64_t size)
 {
   return 0;
+}
+
+bool PTCDevice::isFrameHandle(ANARIObject o)
+{
+  for (auto *f : m_frameWrappers) {
+    if (sameAddress(f, o))
+      return true;
+  }
+  return false;
+}
+
+void PTCDevice::removeFrameWrapper(FrameWrapper *fw)
+{
+  m_frameWrappers.erase(std::remove_if(m_frameWrappers.begin(),
+                            m_frameWrappers.end(),
+                            [&](auto *f) { return sameAddress(f, fw); }),
+      m_frameWrappers.end());
 }
 
 } // namespace ptc
