@@ -414,8 +414,14 @@ void PTCDevice::initDevice()
     return;
 
   reportMessage(ANARI_SEVERITY_DEBUG, "initializing PTC device (%p)", this);
-  ANARILibrary lib = anariLoadLibrary(
-      "environment", defaultStatusCallback(), defaultStatusCallbackUserPtr());
+
+  ANARILibrary lib = nullptr;
+  const char *libName = getenv("PTC_ANARI_LIBRARY");
+  if (libName) {
+    lib = anariLoadLibrary(
+        libName, defaultStatusCallback(), defaultStatusCallbackUserPtr());
+  }
+
   if (!lib) {
     reportMessage(ANARI_SEVERITY_WARNING, "falling back to 'helide'");
     lib = anariLoadLibrary(
