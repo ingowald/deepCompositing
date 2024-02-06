@@ -77,6 +77,10 @@ struct FrameWrapper : public helium::RefCounted
   /////////////////////////////////////////////////////////////////////////////
 
  private:
+  void updateSize();
+  void composite();
+  void cleanup();
+
   FrameWrapperNotificationHandler m_onObjectDestroy;
 
   int m_rank{-1};
@@ -85,12 +89,16 @@ struct FrameWrapper : public helium::RefCounted
   ANARIDevice m_device{nullptr};
   ANARIFrame m_frame{nullptr};
 
-  anari::math::uint2 m_size{0u, 0u};
+  ANARIDataType m_newColorType{ANARI_UNKNOWN};
+  ANARIDataType m_currentColorType{ANARI_UNKNOWN};
+  anari::math::uint2 m_newSize{0u, 0u};
+  anari::math::uint2 m_currentSize{0u, 0u};
+
   std::vector<float> m_depth;
-  std::vector<uint32_t> m_color;
-  uint32_t *d_color_in = 0;
-  uint32_t *d_color_out = 0;
-  float *d_depth = 0;
+  std::vector<uint8_t> m_color;
+  uint32_t *d_color_in{nullptr};
+  uint32_t *d_color_out{nullptr};
+  float *d_depth{nullptr};
 };
 
 } // namespace ptc

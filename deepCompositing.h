@@ -36,19 +36,19 @@ namespace dc {
   class FixedFragsPerPixel;
 
 #define SMALL_FRAGMENTS 1
-  
+
   inline int divRoundUp(int a, int b) { return (a+b-1)/b; }
   inline __device__ float4 operator*(float f, float4 v)
   { return make_float4(f*v.x,f*v.y,f*v.z,f*v.w); }
   inline __device__ float3 operator*(float f, float3 v)
   { return make_float3(f*v.x,f*v.y,f*v.z); }
-  
+
   inline __device__ float4 operator+(float4 a, float4 b)
   { return make_float4(a.x+b.x,
                        a.y+b.y,
                        a.z+b.z,
                        a.w+b.w); }
-  
+
   inline __device__ float3 operator*(float3 a, float3 b)
   { return make_float3(a.x*b.x,
                        a.y*b.y,
@@ -62,7 +62,7 @@ namespace dc {
   using std::min;
   using std::max;
 #endif
-  
+
 #if SMALL_FRAGMENTS
 
 
@@ -131,13 +131,14 @@ namespace dc {
         already full), and return length of list after fragment is
         written */
     inline __device__
-    uint32_t write(const int2 pixelID,
+    uint32_t write(const int pixelID_x,
+                   const int pixelID_y,
                    const Fragment &fragment,
                    bool dbg=false) const;
 
     inline __device__
     int2 getSize() const { return fbSize; }
-    
+
     /*! array of all fragments, using N fragments per each pixel */
     Fragment *fragments;
     /*! exactly one counter per pixel */
@@ -161,7 +162,7 @@ namespace dc {
     /*! list of all fragments, compacted - this is cuda managed mem */
     Fragment *fragments { 0 };
   };
-  
+
   /*! the compositor itself, that only operates on a) a compact array
       of fragments, b) a per-pixel array of fragment counts, and c) a
       per-pixel array of fragment list offsets (into the compact
@@ -174,7 +175,7 @@ namespace dc {
     /*! prepare rendering the next frame - MUST be called exactly once
         before rendering the frame */
     DeviceInterface prepare();
-    
+
     /*! run the actual mpi+cuda compositing stage, using the 'fbSize',
         'pixelCounters' and 'pixelOffsets' values that the Interface
         has set up. Composited values will get written to
@@ -184,17 +185,17 @@ namespace dc {
 
     /*! resize the (device) frame buffer to given size */
     void resize(const int2 &size);
-    
+
     /*! resize the (device) frame buffer to given size */
     void resize(const int size_x, const int size_y) { resize({size_x,size_y}); }
 
-    
+
     /*! pick one of the local nodes' GPUs, base on how many other
       ranks are runnong on that same node. returns the GPU picked
       for this rank. ranks are relative to the 'comm' communicator
       passed to the constructor */
     int  affinitizeGPU();
-      
+
     /*! enable peer access between all gpus ... not sure we actulaly
       need this?!? */
     // void enablePeerAccess();
@@ -214,9 +215,9 @@ namespace dc {
     int       affinitizedGPU { -1 };
 
     DeviceInterface deviceData = {};
-    
+
     int2      fbSize          { 0,0 };
-    
+
     /*! one int per pixel, telling where the given pixel's fragment
         list (in the localFramgements[] array) _ends_ (the beginning
         of the list is given by either the end of the previous pixel's
@@ -224,23 +225,23 @@ namespace dc {
         array as DeviceInterface::offsets; the values are computes as
         a inclusive scan after the frame renderered */
     uint32_t *fullIntCounters    { nullptr };
-    
+
     /*! compacted counters: during rendeirng counters are stored as
         32-bit uints (to re-use the array used for offstes, and to
         allow atomic operaiton on them); but transmission in this form
         would be very wasteful, so we always combine multiple pixels
         to a single 8-bit value */
-    uint8_t  *lowBitCounters { 0 };
+    uint8_t  *lowBitCounters { nullptr };
 
     /*! not yet compacted fragment lists */
-    Fragment *fixedSizeFragmentLists { 0 };
+    Fragment *fixedSizeFragmentLists { nullptr };
     /*! compact array of all pixels' fragment list; this list first
         stores all the framgemnets from pixel 0, then those from pixel
         1, etc.; its size is dependent on how many pixels there are in
         the entire frame buffer; allocating this porperly is the job
         of the respectvie interface */
     Fragment *compactedFragmentLists  { nullptr };
-    
+
     const uint32_t maxFragsPerPixel;
     const uint32_t numCountersPerByte;
 
@@ -250,7 +251,7 @@ namespace dc {
 
     inline uint32_t computeNumPixelsOnThisRank() const
     { return pixelEnd(rank) - pixelBegin(rank); }
-    
+
     inline uint32_t numRanks() const { return size; }
     //    inline uint32_t numPixels() const { return fbSize.x*fbSize.y; }
 
@@ -258,7 +259,7 @@ namespace dc {
     uint32_t numPixelsPadded = 0;
     // the actual number of pixels on the user side, NOT padded
     uint32_t numPixelsOrg = 0;
-    
+
     /*! @{ MPI stuff */
     MPI_Comm  comm            { MPI_COMM_WORLD };
     int       rank            { -1 };
@@ -281,11 +282,12 @@ namespace dc {
       thrown away. Note an alternative strategy would be to throw away
       the fragment with lowst opacity, but for now we do only this. */
   inline __device__
-  uint32_t DeviceInterface::write(const int2 pixelID,
+  uint32_t DeviceInterface::write(const int pixelID_x,
+                                  const int pixelID_y,
                                   const Fragment &fragment,
                                   bool dbg) const
   {
-    int idx = pixelID.x + fbSize.x*pixelID.y;
+    int idx = pixelID_x + fbSize.x*pixelID_y;
     Fragment *frags = fragments+idx*maxFragsPerPixel;
     int listLength = counters[idx];
     if (listLength == maxFragsPerPixel) {
@@ -332,12 +334,12 @@ namespace dc {
 
   inline uint32_t nextMultipleOf(uint32_t i, uint32_t base)
   { return divRoundUp(i,base)*base; }
-                            
+
   inline uint32_t Compositor::pixelBegin(uint32_t nodeID) const
   {
     return nextMultipleOf((nodeID*numPixelsPadded)/numRanks(),
                           numCountersPerByte);
   }
-  
-  
+
+
 } // ::dc

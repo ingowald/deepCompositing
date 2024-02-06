@@ -23,6 +23,10 @@ project(anari_library_ptc LANGUAGES C CXX CUDA)
 project_add_library(MODULE PTCDevice.cpp PTCLibrary.cpp FrameWrapper.cu)
 project_link_libraries(anari::helium deepCompositing)
 
+set_source_files_properties(FrameWrapper.cu
+  PROPERTIES COMPILE_FLAGS "--expt-relaxed-constexpr"
+)
+
 include(GenerateExportHeader)
 generate_export_header(${PROJECT_NAME} EXPORT_MACRO_NAME "PTC_EXPORT")
 project_include_directories(PRIVATE ${CMAKE_CURRENT_BINARY_DIR})

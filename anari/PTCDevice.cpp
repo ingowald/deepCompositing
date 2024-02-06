@@ -309,7 +309,9 @@ int PTCDevice::getProperty(ANARIObject object,
     uint64_t size,
     ANARIWaitMask mask)
 {
-  if (isFrameHandle(object))
+  if (handleIsDevice(object))
+    return deviceGetProperty(name, type, mem, size);
+  else if (isFrameHandle(object))
     return asFrameWrapper(object)->getProperty(name, type, mem, size, mask);
   else
     return m_ptd->getProperty(object, name, type, mem, size, mask);

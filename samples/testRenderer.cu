@@ -43,14 +43,14 @@ namespace dctest {
     idx.x = (idx.x * ((1<<13)-1) + 0x123457);
     idx.y = (idx.y * ((1<<15)-1) + 0x234567);
     idx.z = (idx.z * ((1<<17)-1) + 0x345677);
-    
+
     idx.x = (idx.x * ((1<<13)-1) + 0x123457);
     idx.y = (idx.y * ((1<<15)-1) + 0x234567);
     idx.z = (idx.z * ((1<<17)-1) + 0x345677);
-    
+
     return idx.x ^ idx.y ^ idx.z;
   }
-  
+
   inline __device__
   bool isMine(vec3i idx,
               int mpiRank,
@@ -90,7 +90,7 @@ namespace dctest {
     return reduce_min(fr) >= t;
 #endif
   }
-  
+
   // ==================================================================
   // first variant - use fixd num frags...
   // ==================================================================
@@ -110,32 +110,32 @@ namespace dctest {
       = camera.dir_00
       + float(pixelX) * camera.dir_du
       + float(pixelY) * camera.dir_dv;
-    
+
     if ((pixelY%mpiSize) == mpiRank) {
       const float t = pixelY / (float)(deepFB.getSize().y);
       const vec3f bgColor
         = (1.0f - t)*vec3f(1.0f, 1.0f, 1.0f)
         +         t *vec3f(0.5f, 0.7f, 1.0f);
-      deepFB.write({pixelX,pixelY},dc::Fragment(1e10f,bgColor,1.f));
+      deepFB.write(pixelX,pixelY,dc::Fragment(1e10f,bgColor,1.f));
     }
-    
-    for (int iz=0;iz<testCubeRes;iz++) 
-      for (int iy=0;iy<testCubeRes;iy++) 
+
+    for (int iz=0;iz<testCubeRes;iz++)
+      for (int iy=0;iy<testCubeRes;iy++)
         for (int ix=0;ix<testCubeRes;ix++) {
           if (!isMine({ix,iy,iz},mpiRank,mpiSize))
             continue;
-          
+
           box3f box;
           box.lower = (vec3f(ix,iy,iz)+.1f) * 1.f/testCubeRes;
           box.upper = (vec3f(ix,iy,iz)+.9f) * 1.f/testCubeRes;
           float t;
           if (intersects(box,org,dir,t)) {
             vec3f color = owl::randomColor(12+mpiRank);
-            deepFB.write({pixelX,pixelY},dc::Fragment(t,color,.8f));
+            deepFB.write(pixelX,pixelY,dc::Fragment(t,color,.8f));
           }
         }
   }
-  
+
   void renderFragments(int testCubeRes,
                        const dc::DeviceInterface &deepFB,
                        const Camera &camera,
@@ -163,4 +163,4 @@ namespace dctest {
 
 }
 
-  
+
