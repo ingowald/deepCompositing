@@ -36,19 +36,25 @@ namespace dctest {
 
   inline __device__ uint32_t scramble(vec3i idx)
   {
-    idx.x = (idx.x * ((1<<11)-1) + 0x12345);
-    idx.y = (idx.y * ((1<<13)-1) + 0x23456);
-    idx.z = (idx.z * ((1<<15)-1) + 0x34567);
+    enum { FNV_PRIME = 0x01000193 };
+    uint32_t hash = 0x1234567;
+    hash = hash * FNV_PRIME ^ idx.x;
+    hash = hash * FNV_PRIME ^ idx.y;
+    hash = hash * FNV_PRIME ^ idx.z;
+    return hash;
+    // idx.x = (idx.x * ((1<<11)-1) + 0x12345);
+    // idx.y = (idx.y * ((1<<13)-1) + 0x23456);
+    // idx.z = (idx.z * ((1<<15)-1) + 0x34567);
 
-    idx.x = (idx.x * ((1<<13)-1) + 0x123457);
-    idx.y = (idx.y * ((1<<15)-1) + 0x234567);
-    idx.z = (idx.z * ((1<<17)-1) + 0x345677);
+    // idx.x = (idx.x * ((1<<13)-1) + 0x123457);
+    // idx.y = (idx.y * ((1<<15)-1) + 0x234567);
+    // idx.z = (idx.z * ((1<<17)-1) + 0x345677);
 
-    idx.x = (idx.x * ((1<<13)-1) + 0x123457);
-    idx.y = (idx.y * ((1<<15)-1) + 0x234567);
-    idx.z = (idx.z * ((1<<17)-1) + 0x345677);
+    // idx.x = (idx.x * ((1<<13)-1) + 0x123457);
+    // idx.y = (idx.y * ((1<<15)-1) + 0x234567);
+    // idx.z = (idx.z * ((1<<17)-1) + 0x345677);
 
-    return idx.x ^ idx.y ^ idx.z;
+    // return idx.x ^ idx.y ^ idx.z;
   }
 
   inline __device__

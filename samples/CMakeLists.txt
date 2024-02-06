@@ -38,3 +38,19 @@ target_include_directories(testDeepOffline
   )
 
 
+
+
+
+add_executable(dcGenTestData
+  genTestData.cpp
+  )
+target_link_libraries(dcGenTestData
+  deepCompositing
+  stb_image
+  )
+target_include_directories(dcGenTestData
+  PUBLIC
+  3rdParty/
+  )
+
+
