@@ -296,13 +296,10 @@ void FrameWrapper::composite()
       m_device, m_frame, "channel.depth", &size.x, &size.y, &ptType);
   const uint32_t *color = (const uint32_t *)anariMapFrame(
       m_device, m_frame, "channel.color", &size.x, &size.y, &ptType);
-  CUDA_SYNC_CHECK();
   cudaMemcpy(
       d_depth, depth, size.x * size.y * sizeof(float), cudaMemcpyDefault);
-  CUDA_SYNC_CHECK();
   cudaMemcpy(
       d_color_in, color, size.x * size.y * sizeof(uint32_t), cudaMemcpyDefault);
-  CUDA_SYNC_CHECK();
 
   auto ngx = dc::divRoundUp(size.x, 16);
   auto ngy = dc::divRoundUp(size.y, 16);
@@ -313,13 +310,12 @@ void FrameWrapper::composite()
       d_depth,
       d_color_in,
       m_currentColorType);
-  CUDA_SYNC_CHECK();
   m_deepComp.finish(m_rank == 0 ? d_color_out : nullptr);
-  CUDA_SYNC_CHECK();
   cudaMemcpy(m_color.data(),
       d_color_out,
       size.x * size.y * sizeof(uint32_t),
       cudaMemcpyDefault);
+
   CUDA_SYNC_CHECK();
 
   anariUnmapFrame(m_device, m_frame, "channel.depth");
