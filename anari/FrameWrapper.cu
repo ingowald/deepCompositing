@@ -307,7 +307,7 @@ void FrameWrapper::composite()
   auto ngx = dc::divRoundUp(size.x, 16);
   auto ngy = dc::divRoundUp(size.y, 16);
 
-  writeFrags<<<dim3(ngx, ngy, 1), dim3(16, 16)>>>(m_deepComp.prepare(),
+  writeFrags<<<dim3(ngx, ngy), dim3(16, 16)>>>(m_deepComp.prepare(),
       size.x,
       size.y,
       d_depth,
