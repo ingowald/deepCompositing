@@ -63,7 +63,7 @@ __global__ void writeFrags(dc::DeviceInterface di,
 #endif
 
   if (colorType == ANARI_FLOAT32_VEC4) {
-    const float *rgba = (const float *)d_color + offset;
+    const float *rgba = (const float *)d_color + (offset * 4);
     const float a = rgba[0];
     const float b = rgba[1];
     const float g = rgba[2];
