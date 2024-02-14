@@ -17,14 +17,14 @@
 #include "deepCompositing.h"
 #include "cuda_helper.h"
 #include "mpi_helper.h"
-#include <thrust/scan.h>
-#include <thrust/execution_policy.h>
+// #include <thrust/scan.h>
+// #include <thrust/execution_policy.h>
 #include <vector>
 #include <sstream>
 #include <fstream>
-#include <thrust/device_malloc_allocator.h>
-#include <thrust/device_ptr.h>
-
+// #include <thrust/device_malloc_allocator.h>
+// #include <thrust/device_ptr.h>
+#include <cub/cub.cuh>  
     
 #define PRINT_STATS 1
 
@@ -649,11 +649,32 @@ namespace dc {
       // force padded counters to 0.
       CUDA_CALL(Memset(fullIntCounters+numPixelsOrg,0,
                        (numPixelsPadded-numPixelsOrg)*sizeof(int)));
+#if 1
+      
+      // Declare, allocate, and initialize device-accessible pointers for input and output
+      int  num_items = numPixelsPadded;      // e.g., 7
+      int  *d_in = (int *)fullIntCounters;          // e.g., [8, 6, 7, 5, 3, 0, 9]
+      int  *d_out  = 0;         // e.g., [ ,  ,  ,  ,  ,  ,  ]
+      CUDA_CALL(Malloc((void **)&d_out,num_items*sizeof(int)));
+      //...
+      // Determine temporary device storage requirements for inclusive prefix sum
+      void     *d_temp_storage = NULL;
+      size_t   temp_storage_bytes = 0;
+      cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, d_in, d_out, num_items);
+      // Allocate temporary storage for inclusive prefix sum
+      cudaMalloc(&d_temp_storage, temp_storage_bytes);
+      // Run inclusive prefix sum
+      cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, d_in, d_out, num_items);
+      cudaMemcpy(d_in,d_out,num_items*sizeof(int),cudaMemcpyDefault);
+      cudaFree(d_out);
+      cudaFree(d_temp_storage);
+#else
       thrust::inclusive_scan
         (thrust::device,
          thrust::device_pointer_cast<uint32_t>(fullIntCounters),
          thrust::device_pointer_cast<uint32_t>(fullIntCounters+numPixelsPadded),
          thrust::device_pointer_cast<uint32_t>(fullIntCounters));
+#endif
       CUDA_SYNC_CHECK();
       prof_cudaCompactFrags_scan.leave();
 
@@ -821,11 +842,32 @@ namespace dc {
 
     prof_computeOffsets.enter();
     const int numCountersReceived = numRanks()*computeNumPixelsOnThisRank();
+#if 1
+      
+      // Declare, allocate, and initialize device-accessible pointers for input and output
+      int  num_items = numCountersReceived;      // e.g., 7
+      int  *d_in = (int *)fullIntCounters;          // e.g., [8, 6, 7, 5, 3, 0, 9]
+      int  *d_out  = 0;         // e.g., [ ,  ,  ,  ,  ,  ,  ]
+      CUDA_CALL(Malloc((void **)&d_out,num_items*sizeof(int)));
+      //...
+      // Determine temporary device storage requirements for inclusive prefix sum
+      void     *d_temp_storage = NULL;
+      size_t   temp_storage_bytes = 0;
+      cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, d_in, d_out, num_items);
+      // Allocate temporary storage for inclusive prefix sum
+      cudaMalloc(&d_temp_storage, temp_storage_bytes);
+      // Run inclusive prefix sum
+      cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, d_in, d_out, num_items);
+      cudaMemcpy(d_in,d_out,num_items*sizeof(int),cudaMemcpyDefault);
+      cudaFree(d_out);
+      cudaFree(d_temp_storage);
+#else
     thrust::inclusive_scan
       (thrust::device,
        thrust::device_pointer_cast<uint32_t>(fullIntCounters),
        thrust::device_pointer_cast<uint32_t>(fullIntCounters+numCountersReceived),
        thrust::device_pointer_cast<uint32_t>(fullIntCounters));
+#endif
     CUDA_SYNC_CHECK();
     prof_computeOffsets.leave();
 
