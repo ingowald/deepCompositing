@@ -229,7 +229,7 @@ struct PTCDevice : public anari::DeviceImpl, helium::ParameterizedObject
   anari::DeviceImpl *m_ptd{nullptr};
   std::vector<FrameWrapper *> m_frameWrappers;
 
-  static int s_numPTCDevices;
+  static int s_numMpiPTCDevices;
   static bool s_mpiInitializedPrivately;
 };
 

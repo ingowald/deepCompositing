@@ -24,7 +24,7 @@
 
 namespace ptc {
 
-int PTCDevice::s_numPTCDevices = 0;
+int PTCDevice::s_numMpiPTCDevices = 0;
 bool PTCDevice::s_mpiInitializedPrivately = false;
 
 // Helper functions ///////////////////////////////////////////////////////////
@@ -389,7 +389,6 @@ PTCDevice::PTCDevice(ANARIStatusCallback defaultCallback, const void *userPtr)
 {
   anari::DeviceImpl::m_defaultStatusCB = defaultCallback;
   anari::DeviceImpl::m_defaultStatusCBUserPtr = userPtr;
-  s_numPTCDevices++;
 }
 
 PTCDevice::PTCDevice(ANARILibrary l) : DeviceImpl(l) {}
@@ -401,8 +400,9 @@ PTCDevice::~PTCDevice()
   if (m_ptd)
     m_ptd->release(m_ptd->this_device());
 
-  s_numPTCDevices--;
-  if (s_numPTCDevices == 0 && s_mpiInitializedPrivately) {
+  if (s_mpiInitializedPrivately)
+    s_numMpiPTCDevices--;
+  if (s_numMpiPTCDevices == 0 && s_mpiInitializedPrivately) {
     reportMessage(ANARI_SEVERITY_DEBUG, "finalizing MPI");
     MPI_Finalize();
   }
@@ -440,10 +440,13 @@ void PTCDevice::initDevice()
 
   int mpiInitialized = 0;
   MPI_Initialized(&mpiInitialized);
-  if (s_numPTCDevices == 0 && !mpiInitialized) {
+  if (s_numMpiPTCDevices == 0 && !mpiInitialized) {
     reportMessage(ANARI_SEVERITY_DEBUG, "initializing MPI");
     MPI_Init(nullptr, nullptr);
     s_mpiInitializedPrivately = true;
+    s_numMpiPTCDevices++;
+  } else {
+    reportMessage(ANARI_SEVERITY_DEBUG, "MPI already initialized");
   }
 
   m_initialized = true;
